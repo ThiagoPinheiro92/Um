@@ -1,2 +1,2 @@
-# Um
-Tft
+# inventCalc
+Calculadora de inventário.
