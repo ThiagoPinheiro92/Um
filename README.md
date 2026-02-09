@@ -1,2 +1,0 @@
-# inventCalc
-Calculadora de inventário.
