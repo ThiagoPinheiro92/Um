@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SpinInject Nuvem</title>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    
+    <style>
+        :root { --azul: #1e3a5f; --verde: #2ecc71; --amarelo: #f1c40f; --vermelho: #e74c3c; }
+        body { font-family: sans-serif; background: #f0f4f8; margin: 0; padding: 5px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; user-select: none; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; height: 40px; background: white; border-radius: 8px; margin-bottom: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        h1 { margin: 0; font-size: 16px; color: var(--azul); }
+        .btn-whats { background: #25D366; color: white; border: none; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+
+        .layout-fabrica { display: grid; grid-template-columns: 1fr 30px 1fr; gap: 5px; flex: 1; min-height: 0; }
+        .coluna { display: flex; flex-direction: column; gap: 4px; height: 100%; }
+        .corredor { display: flex; align-items: center; justify-content: center; background: #dfe6e9; color: #b2bec3; writing-mode: vertical-rl; border-radius: 4px; font-weight: bold; font-size: 9px; }
+        .rodape { display: flex; gap: 5px; height: 60px; margin-top: 5px; }
+
+        .card { background: white; border: 2px solid #ccc; border-radius: 6px; padding: 4px; flex: 1; position: relative; display: flex; flex-direction: column; justify-content: center; touch-action: none; transition: 0.2s; }
+        .borda-F { border-color: var(--verde); }
+        .borda-M { border-color: var(--amarelo); }
+        .borda-D { border-color: var(--vermelho); }
+        .status-OFF { background: #e0e0e0; border-color: #999 !important; opacity: 0.7; }
+
+        .badge { position: absolute; top: 2px; left: 2px; background: #333; color: white; padding: 1px 3px; border-radius: 2px; font-size: 8px; font-weight: bold; }
+        .operador { color: #0056b3; font-weight: bold; font-size: 11px; text-align: center; margin-top: 5px; }
+        .molde { font-size: 8px; color: #666; text-align: center; }
+
+        #avatar-drag { position: fixed; pointer-events: none; display: none; z-index: 9999; font-size: 30px; }
+        .hover-destino { background: #e8f4fd !important; transform: scale(1.02); border-style: dashed !important; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; justify-content: center; align-items: center; }
+        .modal-box { background: white; padding: 15px; border-radius: 8px; width: 85%; }
+        input, select { width: 100%; margin: 5px 0 10px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn-salvar { width: 100%; padding: 10px; background: var(--azul); color: white; border: none; border-radius: 4px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>SpinInject Cloud</h1>
+        <button class="btn-whats" onclick="enviarWhats()">Enviar Escala</button>
+    </header>
+
+    <div id="loading" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:10001; background:white; padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.2)">
+        Conectando à nuvem...
+    </div>
+
+    <div class="layout-fabrica">
+        <div id="colE" class="coluna"></div>
+        <div class="corredor">C O R R E D O R</div>
+        <div id="colD" class="coluna"></div>
+    </div>
+    <div id="colB" class="rodape"></div>
+
+    <div id="avatar-drag">👤</div>
+
+    <div id="modal" class="modal">
+        <div class="modal-box">
+            <h3 id="mTit" style="margin:0">Editar Injetora</h3>
+            <input id="inOp" placeholder="Nome do Operador">
+            <input id="inMol" placeholder="Molde">
+            <select id="inDif">
+                <option value="F">Fácil (Verde)</option>
+                <option value="M">Média (Amarela)</option>
+                <option value="D">Difícil (Vermelha)</option>
+            </select>
+            <select id="inSt">
+                <option value="ON">LIGADA</option>
+                <option value="OFF">OFF (Desativada)</option>
+            </select>
+            <button class="btn-salvar" onclick="salvar()">SALVAR NA NUVEM</button>
+            <button onclick="fecharModal()" style="width:100%; margin-top:8px; background:none; border:none; color:red">Cancelar</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURAÇÃO FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAgstf6o36yIiIL8KqR99ZF8fqHPLzUY3w",
+            authDomain: "spininject.firebaseapp.com",
+            databaseURL: "https://spininject-default-rtdb.firebaseio.com",
+            projectId: "spininject",
+            storageBucket: "spininject.firebasestorage.app",
+            messagingSenderId: "213435079930",
+            appId: "1:213435079930:web:79d9ff17723bbdc2a1bd43"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // --- DADOS ---
+        let maquinas = [];
+        let editId = null;
+        let dragId = null;
+        const avatar = document.getElementById('avatar-drag');
+
+        // --- ESCUTAR NUVEM (TEMPO REAL) ---
+        db.ref('plantas/escalaAtual').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                maquinas = data;
+                document.getElementById('loading').style.display = 'none';
+                desenhar();
+            } else {
+                // Se o banco estiver vazio, cria o padrão
+                console.log("Banco vazio, gerando planta padrão...");
+                const padrao = [
+                    { id: '01', p: 'E', st: 'ON', op: '', mol: '', dif: 'F' }, { id: '02', p: 'E', st: 'ON', op: '', mol: '', dif: 'M' },
+                    { id: '03', p: 'E', st: 'ON', op: '', mol: '', dif: 'F' }, { id: '04', p: 'E', st: 'ON', op: '', mol: '', dif: 'D' },
+                    { id: '05', p: 'E', st: 'ON', op: '', mol: '', dif: 'F' }, { id: '06', p: 'E', st: 'ON', op: '', mol: '', dif: 'M' },
+                    { id: '07', p: 'E', st: 'ON', op: '', mol: '', dif: 'D' }, { id: '08', p: 'E', st: 'ON', op: '', mol: '', dif: 'M' },
+                    { id: '12', p: 'D', st: 'OFF', op: '', mol: '', dif: 'F' }, { id: '13', p: 'D', st: 'ON', op: '', mol: '', dif: 'F' },
+                    { id: '14', p: 'D', st: 'ON', op: '', mol: '', dif: 'M' }, { id: '09', p: 'B', st: 'ON', op: '', mol: '', dif: 'F' },
+                    { id: '10', p: 'B', st: 'ON', op: '', mol: '', dif: 'M' }, { id: '11', p: 'B', st: 'ON', op: '', mol: '', dif: 'D' }
+                ];
+                db.ref('plantas/escalaAtual').set(padrao);
+            }
+        });
+
+        function desenhar() {
+            const elE = document.getElementById('colE');
+            const elD = document.getElementById('colD');
+            const elB = document.getElementById('colB');
+            elE.innerHTML = elD.innerHTML = elB.innerHTML = '';
+
+            maquinas.forEach((m) => {
+                const card = document.createElement('div');
+                card.className = `card borda-${m.dif} ${m.st === 'OFF' ? 'status-OFF' : ''}`;
+                card.setAttribute('data-id', m.id);
+                card.innerHTML = `<div class="badge">${m.id}</div><div class="operador">${m.op || '--'}</div><div class="molde">${m.mol || ''}</div>`;
+
+                card.onclick = () => { if(!dragId) abrir(m.id); };
+
+                // Drag and Drop (Bonequinho)
+                card.ontouchstart = (e) => { if(!m.op) return; dragId = m.id; avatar.style.display = 'block'; moverAvatar(e.touches[0]); };
+                card.ontouchmove = (e) => {
+                    if(!dragId) return;
+                    moverAvatar(e.touches[0]);
+                    const alvo = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+                    const cardAlvo = alvo ? alvo.closest('.card') : null;
+                    document.querySelectorAll('.card').forEach(c => c.classList.remove('hover-destino'));
+                    if(cardAlvo) cardAlvo.classList.add('hover-destino');
+                };
+
+                card.ontouchend = (e) => {
+                    if(!dragId) return;
+                    avatar.style.display = 'none';
+                    const t = e.changedTouches[0];
+                    const el = document.elementFromPoint(t.clientX, t.clientY);
+                    const dest = el ? el.closest('.card') : null;
+                    if(dest) {
+                        const idD = dest.getAttribute('data-id');
+                        const mO = maquinas.find(x => x.id === dragId);
+                        const mD = maquinas.find(x => x.id === idD);
+                        if(mO && mD && idD !== dragId && mD.st !== 'OFF') {
+                            mD.op = mO.op; mO.op = '';
+                            db.ref('plantas/escalaAtual').set(maquinas); // Salva na nuvem
+                        }
+                    }
+                    dragId = null;
+                    document.querySelectorAll('.card').forEach(c => c.classList.remove('hover-destino'));
+                };
+
+                if (m.p === 'E') elE.appendChild(card);
+                else if (m.p === 'D') elD.appendChild(card);
+                else elB.appendChild(card);
+            });
+        }
+
+        function moverAvatar(toque) {
+            avatar.style.left = (toque.clientX - 15) + 'px';
+            avatar.style.top = (toque.clientY - 40) + 'px';
+        }
+
+        function abrir(id) {
+            editId = id;
+            const m = maquinas.find(x => x.id === id);
+            document.getElementById('inOp').value = m.op;
+            document.getElementById('inMol').value = m.mol;
+            document.getElementById('inDif').value = m.dif;
+            document.getElementById('inSt').value = m.st;
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function salvar() {
+            const m = maquinas.find(x => x.id === editId);
+            m.op = document.getElementById('inOp').value;
+            m.mol = document.getElementById('inMol').value;
+            m.dif = document.getElementById('inDif').value;
+            m.st = document.getElementById('inSt').value;
+            db.ref('plantas/escalaAtual').set(maquinas); // Salva na nuvem
+            fecharModal();
+        }
+
+        function fecharModal() { document.getElementById('modal').style.display = 'none'; }
+
+        function enviarWhats() {
+            let txt = "*ESCALA SPININJECT (NUVEM)*\n";
+            maquinas.forEach(m => { if(m.st === 'ON' && m.op) txt += `🔹 INJ-${m.id}: ${m.op}\n`; });
+            window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(txt));
+        }
+    </script>
+</body>
+</html>
